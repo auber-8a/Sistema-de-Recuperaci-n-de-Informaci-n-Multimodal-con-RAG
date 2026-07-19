@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/raw/
+data/processed/
+data/faiss_index/
+data/images/
+*.db
+.claude/
+src/__pycache__/

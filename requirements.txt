@@ -1,0 +1,14 @@
+torch
+transformers
+sentence-transformers
+faiss-cpu
+huggingface_hub
+pandas
+numpy
+pyarrow
+pillow
+requests
+tqdm
+python-dotenv
+google-genai
+streamlit
