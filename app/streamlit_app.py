@@ -9,6 +9,7 @@ Me gusta / No me gusta (relevance feedback) y memoria conversacional.
 
 Ejecutar con: streamlit run app/streamlit_app.py
 """
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -16,6 +17,17 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+# En Streamlit Community Cloud las API keys se configuran en "Secrets" (no hay
+# archivo .env). Si esta corriendo ahi, se puentea a variable de entorno ANTES
+# de importar src.config, que es quien la lee al importarse. En local, si no
+# existe ningun secrets.toml, st.secrets lanza excepcion al accederlo: se
+# ignora y se sigue usando el .env de siempre.
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+except st.errors.StreamlitSecretNotFoundError:
+    pass
 
 from src import config
 from src.embeddings import ClipEmbedder
@@ -73,8 +85,12 @@ for turn in st.session_state.chat_log:
                 for i, ev in enumerate(result["evidences"]):
                     cols = st.columns([1, 3])
                     with cols[0]:
-                        if ev.get("image_path"):
-                            st.image(ev["image_path"], width=120)
+                        # image_path solo existe si data/images/ esta presente (dev local);
+                        # en despliegue (sin las imagenes commiteadas) se usa image_url remota.
+                        image_source = ev.get("image_path") if ev.get("image_path") and Path(ev["image_path"]).exists() \
+                            else ev.get("image_url")
+                        if image_source:
+                            st.image(image_source, width=120)
                     with cols[1]:
                         score = ev.get("rerank_score", ev.get("score"))
                         st.markdown(f"**[{i + 1}] score: {score:.4f}**")

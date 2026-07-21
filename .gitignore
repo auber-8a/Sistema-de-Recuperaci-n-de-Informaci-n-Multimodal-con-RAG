@@ -4,7 +4,6 @@ __pycache__/
 .env
 data/raw/
 data/processed/
-data/faiss_index/
 data/images/
 *.db
 .claude/
