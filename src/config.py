@@ -29,8 +29,6 @@ SQID_PRODUCT_IMAGE_URLS_FILE = "data/product_image_urls.parquet"
 SQID_QUERY_FEATURES_FILE = "data/query_features.parquet"
 SQID_PRODUCT_FEATURES_FILE = "data/product_features.parquet"
 
-AMAZON_REVIEWS_2023_REPO = "McAuley-Lab/Amazon-Reviews-2023"
-
 # --- Muestreo del corpus (entorno CPU-only) ---
 RANDOM_SEED = 42
 N_QUERIES_SAMPLE = 150       # queries de ESCI (us, small_version=1) usadas como corpus + qrels

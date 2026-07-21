@@ -1,6 +1,6 @@
 """
 Wrapper del modelo multimodal CLIP para generar embeddings de texto e imagen
-en el mismo espacio vectorial (requisito b del PDF).
+en el mismo espacio vectorial
 
 CLIP trunca internamente el texto a 77 tokens; para documentos de producto
 mas largos esto significa que solo se usa el inicio del texto (titulo +

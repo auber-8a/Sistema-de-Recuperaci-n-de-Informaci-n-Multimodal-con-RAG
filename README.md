@@ -12,9 +12,6 @@ FAISS, embeddings CLIP, generación con Gemini y una interfaz de chat en Streaml
   usadas como *qrels*. Se usa el subconjunto `product_locale=us`, `small_version=1`.
 - **[SQID](https://huggingface.co/datasets/crossingminds/shopping-queries-image-dataset)**:
   URLs de imagen para los productos de ese mismo subconjunto de ESCI.
-- **(Opcional)** [Amazon Reviews 2023](https://amazon-reviews-2023.github.io/) (McAuley Lab):
-  enriquecimiento de texto adicional por producto cuando el ASIN coincide con alguna
-  categoría descargada (ver `src/amazon_reviews_enrichment.py`).
 
 El join se hace por `product_id` (ASIN). Se muestrea un subconjunto de queries (por defecto
 150) conservando todos sus productos asociados, para que cada query de evaluación tenga su
@@ -35,7 +32,6 @@ src/
   feedback.py                          # relevance feedback (Rocchio) [excelencia]
   rag.py                                # prompt, generacion (Gemini), pipeline RAG completo
   evaluation.py                          # Precision@k, Recall@k, NDCG@k contra qrels
-  amazon_reviews_enrichment.py            # enriquecimiento opcional con Amazon Reviews 2023
   llm_client.py                            # cliente Gemini compartido
 app/
   streamlit_app.py               # interfaz de chat con evidencias y feedback
