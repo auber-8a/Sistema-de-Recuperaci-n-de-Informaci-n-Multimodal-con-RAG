@@ -18,16 +18,16 @@ from huggingface_hub import hf_hub_download
 from src import config
 
 
-def _download(repo_id: str, filename: str) -> str:
+def _descargar(repo_id: str, filename: str) -> str:
     return hf_hub_download(repo_id, filename, repo_type="dataset")
 
 
-def load_esci_us_small(cache_path: Path = config.RAW_DIR / "esci_us_small.parquet") -> pd.DataFrame:
+def cargar_esci_us_small(cache_path: Path = config.RAW_DIR / "esci_us_small.parquet") -> pd.DataFrame:
     """Descarga (o lee de cache) el subconjunto ESCI test/us/small_version=1."""
     if cache_path.exists():
         return pd.read_parquet(cache_path)
 
-    paths = [_download(config.ESCI_REPO, f) for f in config.ESCI_TEST_FILES]
+    paths = [_descargar(config.ESCI_REPO, f) for f in config.ESCI_TEST_FILES]
     df = pd.concat([pd.read_parquet(p) for p in paths], ignore_index=True)
 
     df_us = df[(df["small_version"] == 1) & (df["product_locale"] == "us")].copy()
@@ -36,18 +36,18 @@ def load_esci_us_small(cache_path: Path = config.RAW_DIR / "esci_us_small.parque
     return df_us
 
 
-def load_sqid_image_urls() -> pd.DataFrame:
-    path = _download(config.SQID_REPO, config.SQID_PRODUCT_IMAGE_URLS_FILE)
+def cargar_urls_imagenes_sqid() -> pd.DataFrame:
+    path = _descargar(config.SQID_REPO, config.SQID_PRODUCT_IMAGE_URLS_FILE)
     return pd.read_parquet(path)
 
 
-def load_sqid_query_features() -> pd.DataFrame:
+def cargar_features_queries_sqid() -> pd.DataFrame:
     """Embeddings CLIP de queries precalculados por SQID (referencia/validacion)."""
-    path = _download(config.SQID_REPO, config.SQID_QUERY_FEATURES_FILE)
+    path = _descargar(config.SQID_REPO, config.SQID_QUERY_FEATURES_FILE)
     return pd.read_parquet(path)
 
 
-def build_joined_dataset(cache_path: Path = config.RAW_DIR / "joined_full.parquet") -> pd.DataFrame:
+def construir_dataset_unido(cache_path: Path = config.RAW_DIR / "joined_full.parquet") -> pd.DataFrame:
     """
     Devuelve el dataframe unido ESCI + SQID (imagen), a nivel de par (query, producto).
 
@@ -58,8 +58,8 @@ def build_joined_dataset(cache_path: Path = config.RAW_DIR / "joined_full.parque
     if cache_path.exists():
         return pd.read_parquet(cache_path)
 
-    esci = load_esci_us_small()
-    images = load_sqid_image_urls()
+    esci = cargar_esci_us_small()
+    images = cargar_urls_imagenes_sqid()
 
     merged = esci.merge(images, on="product_id", how="left")
     merged.to_parquet(cache_path)
@@ -67,7 +67,7 @@ def build_joined_dataset(cache_path: Path = config.RAW_DIR / "joined_full.parque
 
 
 if __name__ == "__main__":
-    df = build_joined_dataset()
+    df = construir_dataset_unido()
     print("Filas totales:", df.shape)
     print("Productos unicos:", df.product_id.nunique())
     print("Queries unicas:", df.query_id.nunique())

@@ -33,7 +33,7 @@ from src import config
 from src.embeddings import ClipEmbedder
 from src.feedback import FeedbackStore
 from src.memory import ConversationMemory
-from src.rag import rag_pipeline
+from src.rag import pipeline_rag
 from src.reranker import Reranker
 from src.vector_store import FaissVectorStore
 
@@ -41,14 +41,14 @@ st.set_page_config(page_title="RAG Multimodal de Productos", page_icon="🛍️"
 
 
 @st.cache_resource
-def load_components():
+def cargar_componentes():
     embedder = ClipEmbedder()
-    store = FaissVectorStore.load(config.INDEX_DIR)
+    store = FaissVectorStore.cargar(config.INDEX_DIR)
     reranker = Reranker()
     return embedder, store, reranker
 
 
-embedder, store, reranker = load_components()
+embedder, store, reranker = cargar_componentes()
 
 if "memory" not in st.session_state:
     st.session_state.memory = ConversationMemory()
@@ -72,7 +72,7 @@ with st.sidebar:
     top_k_final = st.slider("Top-k final (tras re-ranking)", 1, 10, config.TOP_K_FINAL)
 
     if st.button("Limpiar conversacion"):
-        st.session_state.memory.clear()
+        st.session_state.memory.limpiar()
         st.session_state.chat_log = []
         st.rerun()
 
@@ -81,6 +81,11 @@ for turn in st.session_state.chat_log:
         st.markdown(turn["content"])
         if turn["role"] == "assistant" and turn.get("result"):
             result = turn["result"]
+            if result["effective_query"] != result["query"]:
+                st.caption(f"Consulta reformulada (memoria): *{result['effective_query']}*")
+            if result.get("query_variants"):
+                variants_text = " · ".join(f"*{v}*" for v in result["query_variants"])
+                st.caption(f"🔎 Tambien se busco con: {variants_text}")
             with st.expander(f"Ver evidencias ({len(result['evidences'])})"):
                 for i, ev in enumerate(result["evidences"]):
                     cols = st.columns([1, 3])
@@ -98,12 +103,12 @@ for turn in st.session_state.chat_log:
                         fb_cols = st.columns(2)
                         key_base = f"{turn['content'][:20]}_{ev['product_id']}_{i}"
                         if fb_cols[0].button("👍 Me gusta", key=f"like_{key_base}"):
-                            st.session_state.feedback.record(
+                            st.session_state.feedback.registrar(
                                 st.session_state.session_id, ev["product_id"], liked=True
                             )
                             st.success("Feedback registrado")
                         if fb_cols[1].button("👎 No me gusta", key=f"dislike_{key_base}"):
-                            st.session_state.feedback.record(
+                            st.session_state.feedback.registrar(
                                 st.session_state.session_id, ev["product_id"], liked=False
                             )
                             st.warning("Feedback registrado")
@@ -117,7 +122,7 @@ if query:
 
     with st.chat_message("assistant"):
         with st.spinner("Buscando y generando respuesta..."):
-            result = rag_pipeline(
+            result = pipeline_rag(
                 query,
                 embedder=embedder,
                 store=store,
@@ -130,8 +135,6 @@ if query:
                 top_k_final=top_k_final,
             )
         st.markdown(result["answer"])
-        if result["effective_query"] != query:
-            st.caption(f"Consulta reformulada (memoria): *{result['effective_query']}*")
 
     st.session_state.chat_log.append(
         {"role": "assistant", "content": result["answer"], "result": result}

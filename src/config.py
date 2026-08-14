@@ -31,13 +31,13 @@ SQID_PRODUCT_FEATURES_FILE = "data/product_features.parquet"
 
 # --- Muestreo del corpus (entorno CPU-only) ---
 RANDOM_SEED = 42
-N_QUERIES_SAMPLE = 150       # queries de ESCI (us, small_version=1) usadas como corpus + qrels
-MAX_PRODUCTS_SAMPLE = 3000   # tope de productos unicos tras el muestreo por queries
+N_QUERIES_SAMPLE = 300       # queries de ESCI (us, small_version=1) usadas como corpus + qrels
+MAX_PRODUCTS_SAMPLE = 6500   # tope de productos unicos tras el muestreo por queries
 
 # --- Modelos ---
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 RERANKER_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 # --- Recuperacion / RAG ---
 TOP_K_RETRIEVE = 20

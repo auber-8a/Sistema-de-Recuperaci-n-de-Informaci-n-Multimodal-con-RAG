@@ -15,7 +15,7 @@ class Reranker:
     def __init__(self, model_name: str = config.RERANKER_MODEL_NAME, device: str | None = None):
         self.model = CrossEncoder(model_name, device=device)
 
-    def rerank(self, query: str, candidates: list[dict], top_k: int = config.TOP_K_FINAL) -> list[dict]:
+    def rerankear(self, query: str, candidates: list[dict], top_k: int = config.TOP_K_FINAL) -> list[dict]:
         if not candidates:
             return []
 

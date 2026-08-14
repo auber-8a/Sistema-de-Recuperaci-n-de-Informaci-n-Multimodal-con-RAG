@@ -22,8 +22,8 @@ from tqdm.auto import tqdm
 from src import config
 
 
-def sample_queries(df: pd.DataFrame, n_queries: int = config.N_QUERIES_SAMPLE,
-                    seed: int = config.RANDOM_SEED) -> pd.DataFrame:
+def muestrear_queries(df: pd.DataFrame, n_queries: int = config.N_QUERIES_SAMPLE,
+                       seed: int = config.RANDOM_SEED) -> pd.DataFrame:
     """Selecciona n_queries al azar y devuelve todas las filas (query, producto) asociadas."""
     unique_queries = df["query_id"].drop_duplicates()
     sampled_ids = unique_queries.sample(n=min(n_queries, len(unique_queries)), random_state=seed)
@@ -39,7 +39,7 @@ def sample_queries(df: pd.DataFrame, n_queries: int = config.N_QUERIES_SAMPLE,
     return sample.reset_index(drop=True)
 
 
-def build_products_table(sample: pd.DataFrame) -> pd.DataFrame:
+def construir_tabla_productos(sample: pd.DataFrame) -> pd.DataFrame:
     """Colapsa el dataframe (query, producto) a nivel de producto unico (el corpus indexable)."""
     products = (
         sample.drop_duplicates(subset=["product_id"])
@@ -48,7 +48,7 @@ def build_products_table(sample: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
 
-    def build_document(row):
+    def construir_documento(row):
         parts = [f"Title: {row['product_title']}"]
         if pd.notna(row.get("product_brand")):
             parts.append(f"Brand: {row['product_brand']}")
@@ -60,7 +60,7 @@ def build_products_table(sample: pd.DataFrame) -> pd.DataFrame:
             parts.append(f"Description: {row['product_description']}")
         return "\n".join(parts)
 
-    products["document"] = products.apply(build_document, axis=1)
+    products["document"] = products.apply(construir_documento, axis=1)
 
     # Descarta fichas con titulo de una sola palabra y sin marca/descripcion/features:
     # son registros de metadata degenerada del catalogo real de Amazon (ej. "Job",
@@ -76,7 +76,7 @@ def build_products_table(sample: pd.DataFrame) -> pd.DataFrame:
     return products
 
 
-def _download_one_image(product_id: str, url: str, images_dir: Path) -> str | None:
+def _descargar_una_imagen(product_id: str, url: str, images_dir: Path) -> str | None:
     if not isinstance(url, str) or not url:
         return None
     ext = Path(url.split("?")[0]).suffix or ".jpg"
@@ -95,15 +95,15 @@ def _download_one_image(product_id: str, url: str, images_dir: Path) -> str | No
         return None
 
 
-def download_images(products: pd.DataFrame, images_dir: Path = config.IMAGES_DIR,
-                     max_workers: int = 16) -> pd.DataFrame:
+def descargar_imagenes(products: pd.DataFrame, images_dir: Path = config.IMAGES_DIR,
+                        max_workers: int = 16) -> pd.DataFrame:
     """Descarga en paralelo las imagenes de producto; agrega columna 'image_path' (None si fallo)."""
     images_dir.mkdir(parents=True, exist_ok=True)
     paths = [None] * len(products)
 
     with cf.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_download_one_image, row.product_id, row.image_url, images_dir): i
+            executor.submit(_descargar_una_imagen, row.product_id, row.image_url, images_dir): i
             for i, row in enumerate(products.itertuples(index=False))
         }
         for future in tqdm(cf.as_completed(futures), total=len(futures), desc="Descargando imagenes"):
@@ -115,14 +115,14 @@ def download_images(products: pd.DataFrame, images_dir: Path = config.IMAGES_DIR
     return products
 
 
-def build_corpus(force_rebuild: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+def construir_corpus(force_rebuild: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Pipeline completo: carga datos unidos -> muestrea queries -> arma tabla de
     productos con imagenes locales -> devuelve (products, qrels_sample).
 
     qrels_sample conserva el nivel (query, producto, esci_label) para evaluacion.
     """
-    from src.data_loading import build_joined_dataset
+    from src.data_loading import construir_dataset_unido
 
     products_cache = config.PROCESSED_DIR / "products.parquet"
     qrels_cache = config.PROCESSED_DIR / "qrels_sample.parquet"
@@ -130,11 +130,11 @@ def build_corpus(force_rebuild: bool = False) -> tuple[pd.DataFrame, pd.DataFram
     if not force_rebuild and products_cache.exists() and qrels_cache.exists():
         return pd.read_parquet(products_cache), pd.read_parquet(qrels_cache)
 
-    joined = build_joined_dataset()
-    sample = sample_queries(joined)
+    joined = construir_dataset_unido()
+    sample = muestrear_queries(joined)
 
-    products = build_products_table(sample)
-    products = download_images(products)
+    products = construir_tabla_productos(sample)
+    products = descargar_imagenes(products)
     products = products[products["image_path"].notna()].reset_index(drop=True)
 
     qrels_sample = sample[sample["product_id"].isin(products["product_id"])][
@@ -147,7 +147,7 @@ def build_corpus(force_rebuild: bool = False) -> tuple[pd.DataFrame, pd.DataFram
 
 
 if __name__ == "__main__":
-    products, qrels = build_corpus()
+    products, qrels = construir_corpus()
     print("Productos en el corpus:", products.shape)
     print("Pares (query, producto) para evaluacion:", qrels.shape)
     print("Queries unicas para evaluacion:", qrels.query_id.nunique())

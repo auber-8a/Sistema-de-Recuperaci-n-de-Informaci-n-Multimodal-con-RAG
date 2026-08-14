@@ -12,7 +12,7 @@ se reformula a "que colores tiene el auriculares bluetooth".
 from google.genai import types
 
 from src import config
-from src.llm_client import get_client
+from src.llm_client import obtener_cliente
 
 REWRITE_SYSTEM_INSTRUCTION = """Dado un historial de conversacion y una nueva pregunta del
 usuario, reescribe la nueva pregunta como una consulta de busqueda autocontenida (standalone),
@@ -27,24 +27,24 @@ class ConversationMemory:
         self.max_turns = max_turns
         self.turns: list[dict] = []  # [{"query": ..., "answer": ...}, ...]
 
-    def add_turn(self, query: str, answer: str):
+    def agregar_turno(self, query: str, answer: str):
         self.turns.append({"query": query, "answer": answer})
         self.turns = self.turns[-self.max_turns:]
 
-    def history_text(self) -> str:
+    def texto_historial(self) -> str:
         blocks = []
         for i, t in enumerate(self.turns, start=1):
             blocks.append(f"Usuario: {t['query']}\nAsistente: {t['answer']}")
         return "\n\n".join(blocks)
 
-    def contextualize_query(self, new_query: str) -> str:
+    def contextualizar_consulta(self, new_query: str) -> str:
         """Reescribe new_query como consulta autocontenida usando el historial."""
         if not self.turns:
             return new_query
 
         try:
-            client = get_client()
-            prompt = f"Historial:\n{self.history_text()}\n\nNueva pregunta: {new_query}"
+            client = obtener_cliente()
+            prompt = f"Historial:\n{self.texto_historial()}\n\nNueva pregunta: {new_query}"
             response = client.models.generate_content(
                 model=config.GEMINI_MODEL,
                 contents=prompt,
@@ -59,5 +59,5 @@ class ConversationMemory:
             print(f"[memory] fallo la reescritura, se usa la query original: {e}")
             return new_query
 
-    def clear(self):
+    def limpiar(self):
         self.turns = []

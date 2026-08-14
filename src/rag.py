@@ -13,8 +13,8 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from src import config
-from src.llm_client import get_client
-from src.query_expansion import multi_query_retrieve
+from src.llm_client import obtener_cliente
+from src.query_expansion import recuperar_multi_consulta
 
 RAG_SYSTEM_INSTRUCTION = """Eres un asistente de compras que responde preguntas sobre productos
 basandote UNICAMENTE en las evidencias (fichas de producto) proporcionadas.
@@ -25,10 +25,14 @@ Reglas estrictas:
 3. Si integras informacion de varios productos, se explicito al respecto.
 4. No inventes precios, caracteristicas ni marcas que no esten en las evidencias.
 5. Responde en el mismo idioma de la consulta del usuario.
+6. Si hay evidencias relevantes, empieza tu respuesta con una linea breve (1 sola frase) que
+   resuma cuantos productos se encontraron y de que tipo son en general. Luego responde la
+   consulta puntual del usuario. No hagas un analisis extenso ni compares producto por
+   producto salvo que el usuario lo pida explicitamente.
 """
 
 
-def build_prompt(query: str, evidences: list[dict], history_text: str = "") -> str:
+def construir_prompt(query: str, evidences: list[dict], history_text: str = "") -> str:
     context_blocks = [f"[Evidencia {i}]\n{ev['document']}" for i, ev in enumerate(evidences, start=1)]
     context_text = "\n\n".join(context_blocks)
 
@@ -44,10 +48,10 @@ Instruccion: Responde la consulta del usuario basandote unicamente en las eviden
 siguiendo las reglas del sistema."""
 
 
-def generate_answer(query: str, evidences: list[dict], history_text: str = "",
-                     temperature: float = 0.2, max_retries: int = 5) -> str:
-    prompt = build_prompt(query, evidences, history_text)
-    client = get_client()
+def generar_respuesta(query: str, evidences: list[dict], history_text: str = "",
+                       temperature: float = 0.2, max_retries: int = 1) -> str:
+    prompt = construir_prompt(query, evidences, history_text)
+    client = obtener_cliente()
 
     for attempt in range(max_retries):
         try:
@@ -69,8 +73,8 @@ def generate_answer(query: str, evidences: list[dict], history_text: str = "",
     return "No fue posible generar una respuesta en este momento debido a alta demanda del servicio."
 
 
-def rag_pipeline(query: str, embedder, store, reranker=None, memory=None, feedback=None,
-                  session_id: str = "default", use_query_expansion: bool = True,
+def pipeline_rag(query: str, embedder, store, reranker=None, memory=None, feedback=None,
+                  session_id: str = "default", use_query_expansion: bool = False,
                   top_k_retrieve: int = config.TOP_K_RETRIEVE,
                   top_k_final: int = config.TOP_K_FINAL) -> dict:
     """
@@ -78,28 +82,30 @@ def rag_pipeline(query: str, embedder, store, reranker=None, memory=None, feedba
     (memoria, expansion, feedback, reranking) son opcionales: si no se
     pasan, el pipeline degrada al comportamiento base del PDF.
     """
-    effective_query = memory.contextualize_query(query) if memory else query
+    effective_query = memory.contextualizar_consulta(query) if memory else query
+    query_variants: list[str] = []
 
     if use_query_expansion:
-        candidates = multi_query_retrieve(effective_query, embedder, store, top_k=top_k_retrieve)
+        candidates, query_variants = recuperar_multi_consulta(effective_query, embedder, store, top_k=top_k_retrieve)
     else:
-        query_vector = embedder.encode_query(effective_query)
+        query_vector = embedder.codificar_consulta(effective_query)
         if feedback is not None:
-            query_vector = feedback.apply_rocchio(session_id, query_vector, store)
-        candidates = store.search(query_vector, top_k=top_k_retrieve)
+            query_vector = feedback.aplicar_rocchio(session_id, query_vector, store)
+        candidates = store.buscar(query_vector, top_k=top_k_retrieve)
 
-    evidences = reranker.rerank(effective_query, candidates, top_k=top_k_final) if reranker \
+    evidences = reranker.rerankear(effective_query, candidates, top_k=top_k_final) if reranker \
         else candidates[:top_k_final]
 
-    history_text = memory.history_text() if memory else ""
-    answer = generate_answer(effective_query, evidences, history_text=history_text)
+    history_text = memory.texto_historial() if memory else ""
+    answer = generar_respuesta(effective_query, evidences, history_text=history_text)
 
     if memory:
-        memory.add_turn(query, answer)
+        memory.agregar_turno(query, answer)
 
     return {
         "query": query,
         "effective_query": effective_query,
         "answer": answer,
         "evidences": evidences,
+        "query_variants": [v for v in query_variants if v != effective_query],
     }

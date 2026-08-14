@@ -6,7 +6,7 @@ from src import config
 _client = None
 
 
-def get_client() -> genai.Client:
+def obtener_cliente() -> genai.Client:
     global _client
     if _client is None:
         if not config.GEMINI_API_KEY:
